@@ -1,0 +1,58 @@
+name: Deploy to Ubuntu Server
+
+on:
+  push:
+    branches:
+      - main  # main 브랜치에 푸시될 때 트리거
+
+jobs:
+  build:
+    runs-on: ubuntu-latest     # staging 서버 준비
+
+    steps: 
+    # 코드 체크아웃
+    - name: Checkout repository  # dispaly name
+      uses: actions/checkout@v2  # gitaction plugin : main brach clone
+
+    # JDK 17 설정
+    - name: Set up JDK 17
+      uses: actions/setup-java@v1
+      with:
+        java-version: '17'
+
+    - name: Build with Gradle
+      run: |
+        chmod +x ./gradlew
+        ./gradlew build
+  
+  # 환경변수에 키 저장해서 복사하고 사용자만 읽고 쓰게설정
+    - name: Set SSH key permissions # scp를 위한 키 생성
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa 
+
+    - name: Add SSH key
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.SERVER_SSH_KEY }} 
+   # server ip scan해서 등록할 수 있는지 확인
+    - name: Add known_hosts
+      run: |
+        ssh-keyscan -t ed25519 192.168.56.103 >> ~/.ssh/known_hosts
+
+    #- name: 기존프로세스 종료 
+    #  run: |
+    #    kill -9 $(ps -ef | grep devops | grep -v grep | head -n 1 | awk '{print $2}') || true
+
+    # 운영서버에 파일 복사
+    - name: Deploy to Server
+      run: scp build/libs/*.jar ubuntu@192.168.56.103:~/
+
+    # nohup : 터미널이 종료되되 백그라운드로 자바 실행하고 로그 남기도록 실행
+    - name: Run SSH commands
+      run: |
+        ssh -i ~/.ssh/id_rsa ubuntu@192.168.56.103 << 'EOF'
+          pkill -f 'java -jar' || true
+          nohup java -jar ~/devopts_step0-0.0.1-SNAPSHOT.jar > log.txt 2>&1 &
+        EOF
