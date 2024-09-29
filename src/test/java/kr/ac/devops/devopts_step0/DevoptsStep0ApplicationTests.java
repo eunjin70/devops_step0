@@ -22,9 +22,9 @@ class DevoptsStep0ApplicationTests {
 		assertEquals(30, result);
 	}
 
-	@Test
-	void addTest2(){
-		int result =add(10,20);
-		assertEquals(20, result);
-	}
+	// @Test
+	// void addTest2(){
+	// 	int result =add(10,20);
+	// 	assertEquals(20, result);
+	// }
 }
